@@ -182,7 +182,8 @@ pub fn is_absolute(path: String) -> Bool {
 /// Expand `..` and `.` segments in a path.
 ///
 /// If the path has a `..` segment that would go up past the root of the path
-/// then an error is returned.
+/// then an error is returned. This may be useful to example to ensure that a
+/// path specified by a user does not go outside of a directory.
 ///
 /// If the path is absolute then the result will always be absolute.
 ///
