@@ -113,3 +113,51 @@ fn get_directory_name(
 pub fn is_absolute(path: String) -> Bool {
   string.starts_with(path, "/")
 }
+
+// TODO: document
+// TODO: windows support
+pub fn expand(path: String) -> Result(String, Nil) {
+  let is_absolute = is_absolute(path)
+  let result =
+    path
+    |> split
+    |> root_slash_to_empty
+    |> expand_segments([])
+
+  case is_absolute && result == Ok("") {
+    True -> Ok("/")
+    False -> result
+  }
+}
+
+fn expand_segments(
+  path: List(String),
+  base: List(String),
+) -> Result(String, Nil) {
+  case base, path {
+    // Going up past the root (empty string in this representation)
+    [""], ["..", ..] -> Error(Nil)
+
+    // Going up past the top of a relative path
+    [], ["..", ..] -> Error(Nil)
+
+    // Going up successfully
+    [_, ..base], ["..", ..path] -> expand_segments(path, base)
+
+    // Discarding `.`
+    _, [".", ..path] -> expand_segments(path, base)
+
+    // Adding a segment
+    _, [s, ..path] -> expand_segments(path, [s, ..base])
+
+    // Done!
+    _, [] -> Ok(string.join(list.reverse(base), "/"))
+  }
+}
+
+fn root_slash_to_empty(segments: List(String)) -> List(String) {
+  case segments {
+    ["/", ..rest] -> ["", ..rest]
+    _ -> segments
+  }
+}

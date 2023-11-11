@@ -260,3 +260,88 @@ pub fn is_absolute_6_test() {
   filepath.is_absolute("/")
   |> should.equal(True)
 }
+
+pub fn expand_0_test() {
+  filepath.expand("one")
+  |> should.equal(Ok("one"))
+}
+
+pub fn expand_1_test() {
+  filepath.expand("/one")
+  |> should.equal(Ok("/one"))
+}
+
+pub fn expand_2_test() {
+  filepath.expand("/..")
+  |> should.equal(Error(Nil))
+}
+
+pub fn expand_3_test() {
+  filepath.expand("/one/two/..")
+  |> should.equal(Ok("/one"))
+}
+
+pub fn expand_4_test() {
+  filepath.expand("/one/two/../..")
+  |> should.equal(Ok("/"))
+}
+
+pub fn expand_5_test() {
+  filepath.expand("/one/two/../../..")
+  |> should.equal(Error(Nil))
+}
+
+pub fn expand_6_test() {
+  filepath.expand("/one/two/../../three")
+  |> should.equal(Ok("/three"))
+}
+
+pub fn expand_7_test() {
+  filepath.expand("one")
+  |> should.equal(Ok("one"))
+}
+
+pub fn expand_8_test() {
+  filepath.expand("..")
+  |> should.equal(Error(Nil))
+}
+
+pub fn expand_9_test() {
+  filepath.expand("one/two/..")
+  |> should.equal(Ok("one"))
+}
+
+pub fn expand_10_test() {
+  filepath.expand("one/two/../..")
+  |> should.equal(Ok(""))
+}
+
+pub fn expand_11_test() {
+  filepath.expand("one/two/../../..")
+  |> should.equal(Error(Nil))
+}
+
+pub fn expand_12_test() {
+  filepath.expand("one/two/../../three")
+  |> should.equal(Ok("three"))
+}
+
+pub fn expand_13_test() {
+  filepath.expand("/one/.")
+  |> should.equal(Ok("/one"))
+}
+
+pub fn expand_14_test() {
+  filepath.expand("/one/./two")
+  |> should.equal(Ok("/one/two"))
+}
+
+pub fn expand_15_test() {
+  filepath.expand("/one/")
+  |> should.equal(Ok("/one"))
+}
+
+pub fn expand_16_test() {
+  filepath.expand("/one/../")
+  |> should.equal(Ok("/"))
+}
