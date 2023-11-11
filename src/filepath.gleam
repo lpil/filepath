@@ -1,3 +1,7 @@
+//// Work with file paths in Gleam!
+////
+//// This package does not yet support Windows paths, but it will in the future.
+
 // References:
 // https://github.com/erlang/otp/blob/master/lib/stdlib/src/filename.erl
 // https://github.com/elixir-lang/elixir/blob/main/lib/elixir/lib/path.ex
@@ -13,7 +17,18 @@ import gleam/result
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
 fn is_windows() -> Bool
 
-// TODO: document
+/// Join two paths together.
+///
+/// This function does not expand `..` or `.` segments, use the `expand`
+/// function to do this.
+///
+/// ## Examples
+///
+/// ```gleam
+/// join("/usr/local", "bin")
+/// // -> "/usr/local/bin"
+/// ```
+///
 pub fn join(left: String, right: String) -> String {
   case left, right {
     _, "/" -> left
@@ -27,9 +42,7 @@ pub fn join(left: String, right: String) -> String {
   |> remove_trailing_slash
 }
 
-// TODO: document
-// TODO: windows support
-pub fn relative(path: String) -> String {
+fn relative(path: String) -> String {
   case path {
     "/" <> path -> relative(path)
     _ -> path
@@ -43,8 +56,16 @@ fn remove_trailing_slash(path: String) -> String {
   }
 }
 
-// TODO: document
 // TODO: Windows support
+/// Split a path into its segments.
+///
+/// ## Examples
+///
+/// ```gleam
+/// split("/usr/local/bin", "bin")
+/// // -> ["/", "usr", "local", "bin"]
+/// ```
+///
 pub fn split(path: String) -> List(String) {
   case is_windows() {
     True -> split_windows(path)
@@ -66,7 +87,20 @@ fn split_windows(path: String) -> List(String) {
   split_unix(path)
 }
 
-// TODO: document
+/// Get the file extension of a path.
+///
+/// ## Examples
+///
+/// ```gleam
+/// extension("src/main.gleam")
+/// // -> Ok("gleam")
+/// ```
+///
+/// ```gleam
+/// extension("package.tar.gz")
+/// // -> Ok("gz")
+/// ```
+///
 pub fn extension(path: String) -> Result(String, Nil) {
   case string.split(path, ".") {
     [_, extension] -> Ok(extension)
@@ -75,8 +109,17 @@ pub fn extension(path: String) -> Result(String, Nil) {
   }
 }
 
-// TODO: document
 // TODO: windows support
+/// Get the base name of a path, that is the name of the file without the
+/// containing directory.
+///
+/// ## Examples
+///
+/// ```gleam
+/// base_name("/usr/local/bin")
+/// // -> "bin"
+/// ```
+///
 pub fn base_name(path: String) -> String {
   use <- bool.guard(when: path == "/", return: "")
 
@@ -86,8 +129,16 @@ pub fn base_name(path: String) -> String {
   |> result.unwrap("")
 }
 
-// TODO: document
 // TODO: windows support
+/// Get the directory name of a path, that is the path without the file name.
+///
+/// ## Examples
+///
+/// ```gleam
+/// directory_name("/usr/local/bin")
+/// // -> "/usr/local"
+/// ```
+///
 pub fn directory_name(path: String) -> String {
   let path = remove_trailing_slash(path)
   case path {
@@ -108,14 +159,50 @@ fn get_directory_name(
   }
 }
 
-// TODO: document
 // TODO: windows support
+/// Check if a path is absolute.
+///
+/// ## Examples
+///
+/// ```gleam
+/// is_absolute("/usr/local/bin")
+/// // -> True
+/// ```
+///
+/// ```gleam
+/// is_absolute("usr/local/bin")
+/// // -> False
+/// ```
+///
 pub fn is_absolute(path: String) -> Bool {
   string.starts_with(path, "/")
 }
 
-// TODO: document
-// TODO: windows support
+//TODO: windows support
+/// Expand `..` and `.` segments in a path.
+///
+/// If the path has a `..` segment that would go up past the root of the path
+/// then an error is returned.
+///
+/// If the path is absolute then the result will always be absolute.
+///
+/// ## Examples
+///
+/// ```gleam
+/// expand("/usr/local/../bin")
+/// // -> Ok("/usr/bin")
+/// ```
+///
+/// ```gleam
+/// expand("/tmp/../..")
+/// // -> Error(Nil)
+/// ```
+///
+/// ```gleam
+/// expand("src/../..")
+/// // -> Error("..")
+/// ```
+///
 pub fn expand(path: String) -> Result(String, Nil) {
   let is_absolute = is_absolute(path)
   let result =

@@ -1,7 +1,6 @@
 import filepath
 import gleeunit
 import gleeunit/should
-import gleam/io
 
 pub fn main() {
   gleeunit.main()
@@ -10,11 +9,6 @@ pub fn main() {
 @external(erlang, "filepath_ffi", "is_windows")
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
 fn is_windows() -> Bool
-
-fn skip(_f: fn() -> whatever) -> Nil {
-  io.print_error("[skipped]")
-  Nil
-}
 
 fn windows_only(f: fn() -> whatever) -> Nil {
   case is_windows() {
@@ -111,39 +105,6 @@ pub fn join_10_test() {
 pub fn join_11_test() {
   filepath.join("/one", "/two/three/")
   |> should.equal("/one/two/three")
-}
-
-pub fn relative_0_test() {
-  use <- skip
-  filepath.relative("C:/usr/local/bin")
-  |> should.equal("usr/local/bin")
-}
-
-pub fn relative_1_test() {
-  use <- skip
-  filepath.relative("C:\\usr\\local\\bin")
-  |> should.equal("usr\\local\\bin")
-}
-
-pub fn relative_2_test() {
-  use <- skip
-  filepath.relative("C:usr\\local\\bin")
-  |> should.equal("usr\\local\\bin")
-}
-
-pub fn relative_3_test() {
-  filepath.relative("/usr/local/bin")
-  |> should.equal("usr/local/bin")
-}
-
-pub fn relative_4_test() {
-  filepath.relative("usr/local/bin")
-  |> should.equal("usr/local/bin")
-}
-
-pub fn relative_5_test() {
-  filepath.relative("../usr/local/bin")
-  |> should.equal("../usr/local/bin")
 }
 
 pub fn extension_0_test() {
