@@ -306,3 +306,18 @@ pub fn expand_16_test() {
   filepath.expand("/one/../")
   |> should.equal(Ok("/"))
 }
+
+pub fn strip_extension_1_test() {
+  filepath.strip_extension("src/gleam")
+  |> should.equal("src/gleam")
+}
+
+pub fn strip_extension_2_test() {
+  filepath.strip_extension("src/gleam.toml")
+  |> should.equal("src/gleam")
+}
+
+pub fn strip_extension_3_test() {
+  filepath.strip_extension("package.tar.gz")
+  |> should.equal("package.tar")
+}
