@@ -109,6 +109,35 @@ pub fn extension(path: String) -> Result(String, Nil) {
   }
 }
 
+/// Remove the extension from a file, if it has any.
+/// 
+/// ## Examples
+/// 
+/// ```gleam
+/// strip_extension("src/main.gleam")
+/// // -> "src/main"
+/// ```
+/// 
+/// ```gleam
+/// strip_extension("package.tar.gz")
+/// // -> "package.tar"
+/// ```
+/// 
+/// ```gleam
+/// strip_extension("src/gleam")
+/// // -> "src/gleam"
+/// ```
+/// 
+pub fn strip_extension(path: String) -> String {
+  case extension(path) {
+    Ok(extension) ->
+      // Since the extension string doesn't have a leading `.`
+      // we drop a grapheme more to remove that as well.
+      string.drop_right(path, string.length(extension) + 1)
+    Error(Nil) -> path
+  }
+}
+
 // TODO: windows support
 /// Get the base name of a path, that is the name of the file without the
 /// containing directory.
