@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0 - 2024-02-08
+
+- All existing functions now support Windows paths when run on Windows.
+- The `filepath` module gains the `split_unix` and `split_windows` functions.
+
 ## v0.2.0 - 2024-02-08
 
 - The `filepath` module gains the `strip_extension` function.
