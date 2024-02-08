@@ -1,6 +1,8 @@
 //// Work with file paths in Gleam!
 ////
-//// This package does not yet support Windows paths, but it will in the future.
+//// This library expects paths to be valid unicode. If you need to work with
+//// non-unicode paths you will need to convert them to unicode before using
+//// this library.
 
 // References:
 // https://github.com/erlang/otp/blob/master/lib/stdlib/src/filename.erl
@@ -12,6 +14,7 @@ import gleam/list
 import gleam/bool
 import gleam/string
 import gleam/result
+import gleam/option.{type Option, None, Some}
 
 @external(erlang, "filepath_ffi", "is_windows")
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
@@ -59,6 +62,10 @@ fn remove_trailing_slash(path: String) -> String {
 // TODO: Windows support
 /// Split a path into its segments.
 ///
+/// When running on Windows both `/` and `\` are treated as path separators, and 
+/// if the path starts with a drive letter then the drive letter then it is
+/// lowercased.
+///
 /// ## Examples
 ///
 /// ```gleam
@@ -73,7 +80,20 @@ pub fn split(path: String) -> List(String) {
   }
 }
 
-fn split_unix(path: String) -> List(String) {
+/// Split a path into its segments, using `/` as the path separator.
+///
+/// Typically you would want to use `split` instead of this function, but if you
+/// want non-Windows path behaviour on a Windows system then you can use this
+/// function.
+///
+/// ## Examples
+///
+/// ```gleam
+/// split("/usr/local/bin", "bin")
+/// // -> ["/", "usr", "local", "bin"]
+/// ```
+///
+pub fn split_unix(path: String) -> List(String) {
   case string.split(path, "/") {
     [""] -> []
     ["", ..rest] -> ["/", ..rest]
@@ -82,9 +102,53 @@ fn split_unix(path: String) -> List(String) {
   |> list.filter(fn(x) { x != "" })
 }
 
-// TODO: implement it!
-fn split_windows(path: String) -> List(String) {
-  split_unix(path)
+/// Split a path into its segments, using `/` and `\` as the path separators. If
+/// there is a drive letter at the start of the path then it is lowercased.
+///
+/// Typically you would want to use `split` instead of this function, but if you
+/// want Windows path behaviour on a non-Windows system then you can use this
+/// function.
+///
+/// ## Examples
+///
+/// ```gleam
+/// split("/usr/local/bin", "bin")
+/// // -> ["/", "usr", "local", "bin"]
+/// ```
+///
+pub fn split_windows(path: String) -> List(String) {
+  let #(drive, path) = pop_windows_drive_specifier(path)
+
+  let segments =
+    string.split(path, "/")
+    |> list.flat_map(string.split(_, "\\"))
+
+  let segments = case drive {
+    Some(drive) -> [drive, ..segments]
+    None -> segments
+  }
+
+  case segments {
+    [""] -> []
+    ["", ..rest] -> ["/", ..rest]
+    rest -> rest
+  }
+}
+
+fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
+  let start = string.slice(from: path, at_index: 0, length: 3)
+  let codepoints = string.to_utf_codepoints(start)
+  case list.map(codepoints, string.utf_codepoint_to_int) {
+    [drive, colon, slash] if { slash == 47 || slash == 92 } && colon == 58 && {
+      drive >= 65 && drive <= 90 || drive >= 97 && drive <= 122
+    } -> {
+      let drive_letter = string.slice(from: path, at_index: 0, length: 1)
+      let drive = string.lowercase(drive_letter) <> ":/"
+      let path = string.drop_left(path, 3)
+      #(Some(drive), path)
+    }
+    _ -> #(None, path)
+  }
 }
 
 /// Get the file extension of a path.

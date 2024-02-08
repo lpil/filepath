@@ -35,16 +35,76 @@ pub fn split_2_test() {
   |> should.equal(["/", "usr", "local", "bin"])
 }
 
-pub fn split_windows_0_test() {
+pub fn split_3_test() {
   use <- windows_only
   filepath.split("C:\\one\\two")
   |> should.equal(["c:/", "one", "two"])
 }
 
-pub fn split_windows_1_test() {
+pub fn split_4_test() {
   use <- windows_only
   filepath.split("C:/one/two")
   |> should.equal(["c:/", "one", "two"])
+}
+
+pub fn split_unix_0_test() {
+  filepath.split_unix("")
+  |> should.equal([])
+}
+
+pub fn split_unix_1_test() {
+  filepath.split_unix("file")
+  |> should.equal(["file"])
+}
+
+pub fn split_unix_2_test() {
+  filepath.split_unix("/usr/local/bin")
+  |> should.equal(["/", "usr", "local", "bin"])
+}
+
+pub fn split_unix_3_test() {
+  filepath.split_unix("C:\\one\\two")
+  |> should.equal(["C:\\one\\two"])
+}
+
+pub fn split_unix_4_test() {
+  filepath.split_unix("C:/one/two")
+  |> should.equal(["C:", "one", "two"])
+}
+
+pub fn split_windows_0_test() {
+  filepath.split_windows("")
+  |> should.equal([])
+}
+
+pub fn split_windows_1_test() {
+  filepath.split_windows("file")
+  |> should.equal(["file"])
+}
+
+pub fn split_windows_2_test() {
+  filepath.split_windows("/usr/local/bin")
+  |> should.equal(["/", "usr", "local", "bin"])
+}
+
+pub fn split_windows_3_test() {
+  filepath.split_windows("C:\\one\\two")
+  |> should.equal(["c:/", "one", "two"])
+}
+
+pub fn split_windows_4_test() {
+  filepath.split_windows("C:/one/two")
+  |> should.equal(["c:/", "one", "two"])
+}
+
+pub fn split_windows_5_test() {
+  filepath.split_windows("::\\one\\two")
+  |> should.equal(["::", "one", "two"])
+}
+
+pub fn split_windows_6_test() {
+  filepath.split_windows("::/one/two")
+  |> should.equal(["::", "one", "two"])
 }
 
 pub fn join_0_test() {
