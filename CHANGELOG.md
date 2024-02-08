@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 - 2024-02-08
 
 - The `filepath` module gains the `strip_extension` function.
 - Fixed a bug where the `extension` function could return the incorrect value
