@@ -122,6 +122,21 @@ pub fn extension_2_test() {
   |> should.equal(Ok("gz"))
 }
 
+pub fn extension_3_test() {
+  filepath.extension("one.two/file.txt.gz")
+  |> should.equal(Ok("gz"))
+}
+
+pub fn extension_4_test() {
+  filepath.extension("one.two/file")
+  |> should.equal(Error(Nil))
+}
+
+pub fn extension_5_test() {
+  filepath.extension(".env")
+  |> should.equal(Error(Nil))
+}
+
 pub fn base_name_0_test() {
   filepath.base_name("file")
   |> should.equal("file")
@@ -320,4 +335,14 @@ pub fn strip_extension_2_test() {
 pub fn strip_extension_3_test() {
   filepath.strip_extension("package.tar.gz")
   |> should.equal("package.tar")
+}
+
+pub fn strip_extension_4_test() {
+  filepath.strip_extension("one.two/package")
+  |> should.equal("one.two/package")
+}
+
+pub fn strip_extension_5_test() {
+  filepath.strip_extension(".env")
+  |> should.equal(".env")
 }
