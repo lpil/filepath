@@ -135,12 +135,28 @@ pub fn split_windows(path: String) -> List(String) {
   }
 }
 
+const codepoint_slash = 47
+
+const codepoint_backslash = 92
+
+const codepoint_colon = 58
+
+const codepoint_a = 65
+
+const codepoint_z = 90
+
+const codepoint_a_up = 97
+
+const codepoint_z_up = 122
+
 fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
   let start = string.slice(from: path, at_index: 0, length: 3)
   let codepoints = string.to_utf_codepoints(start)
   case list.map(codepoints, string.utf_codepoint_to_int) {
-    [drive, colon, slash] if { slash == 47 || slash == 92 } && colon == 58 && {
-      drive >= 65 && drive <= 90 || drive >= 97 && drive <= 122
+    [drive, colon, slash] if {
+      slash == codepoint_slash || slash == codepoint_backslash
+    } && colon == codepoint_colon && {
+      drive >= codepoint_a && drive <= codepoint_z || drive >= codepoint_a_up && drive <= codepoint_z_up
     } -> {
       let drive_letter = string.slice(from: path, at_index: 0, length: 1)
       let drive = string.lowercase(drive_letter) <> ":/"
