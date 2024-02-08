@@ -102,7 +102,9 @@ fn split_windows(path: String) -> List(String) {
 /// ```
 ///
 pub fn extension(path: String) -> Result(String, Nil) {
-  case string.split(path, ".") {
+  let file = base_name(path)
+  case string.split(file, ".") {
+    ["", _] -> Error(Nil)
     [_, extension] -> Ok(extension)
     [_, ..rest] -> list.last(rest)
     _ -> Error(Nil)
