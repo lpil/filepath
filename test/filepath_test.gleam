@@ -1,3 +1,6 @@
+import gleam/list
+import gleam/string
+
 import filepath
 import gleeunit
 import gleeunit/should
@@ -105,6 +108,144 @@ pub fn split_windows_5_test() {
 pub fn split_windows_6_test() {
   filepath.split_windows("::/one/two")
   |> should.equal(["::", "one", "two"])
+}
+
+pub fn split_windows_volume_prefix_multi_test() {
+    let testfn = fn(testcase: #(String, #(String, String))) {
+        let #(path, expected_split) = testcase
+
+        // Run test case as provided:
+        filepath.split_windows_volume_prefix(path)
+        |> should.equal(expected_split)
+
+        // Invert path separators in test case and expected and re-test:
+        let #(current_separator, other_separator) = case string.contains(path, "/") {
+            True -> #("/", "\\")
+            False -> #("\\", "/")
+        }
+        let invert_separator_char = fn(c) {
+            case c {
+                c if c == current_separator -> other_separator
+                c if c == other_separator -> current_separator
+                c -> c
+            }
+        }
+        let invert_separators = fn(s) {
+            s
+            |> string.to_graphemes
+            |> list.map(invert_separator_char)
+            |> string.join("")
+        }
+
+        let #(expected_volume, expected_rest) = expected_split
+        path
+        |> invert_separators
+        |> filepath.split_windows_volume_prefix
+        |> should.equal(
+            #(invert_separators(expected_volume),
+              invert_separators(expected_rest)))
+    }
+
+    let testcases: List(#(String, #(String, String))) = [
+        // Unix paths:
+        #("/", #("", "/")),
+        #("/usr/local/bin", #("", "/usr/local/bin")),
+
+        // Base Windows cases:
+        #("", #("", "")),
+        #("/", #("", "/")),
+        #("\\", #("", "\\")),
+        #("file", #("", "file")),
+        #("dir1/dir2/file.txt", #("", "dir1/dir2/file.txt")),
+        #("::/one/two", #("", "::/one/two")),
+        #("::\\one\\two", #("", "::\\one\\two")),
+        #("C:", #("C:", "")),
+        #("c:", #("c:", "")),
+        #("C:/", #("C:", "")),
+        #("c:\\", #("c:", "")),
+        #("C:/one/two", #("C:", "one/two")),
+        #("c:/one/two", #("c:", "one/two")),
+        #("C:\\one\\two", #("C:", "one\\two")),
+        #("c:\\one\\two", #("c:", "one\\two")),
+        #("C:\\one\\two/three", #("C:", "one\\two/three")),
+        #("c:/one/two\\three", #("c:", "one/two\\three")),
+
+        // Current-drive absolute paths:
+        #("/dir1/dir2/file.txt", #("", "/dir1/dir2/file.txt")),
+        #("/dir1/dir2\\file.txt", #("", "/dir1/dir2\\file.txt")),
+        #("\\dir1\\dir2\\file.txt", #("", "\\dir1\\dir2\\file.txt")),
+
+        // Drive-relative paths:
+        #("C:dir1/dir2/file.txt", #("C:", "dir1/dir2/file.txt")),
+        #("C:dir1/dir2\\file.txt", #("C:", "dir1/dir2\\file.txt")),
+        #("C:dir1\\dir2\\file.txt", #("C:", "dir1\\dir2\\file.txt")),
+
+        // Specialized Windows paths:
+        #("HKLM:", #("HKLM:", "")),
+        #("HKLM:/", #("HKLM:", "")),
+        #("//./pipe", #("//./pipe", "")),
+        #("//./pipe/", #("//./pipe", "")),
+        #("//./pipe/testpipe", #("//./pipe", "testpipe")),
+        #(
+            "HKLM:/SOFTWARE/Microsoft/Windows/CurrentVersion",
+            #("HKLM:", "SOFTWARE/Microsoft/Windows/CurrentVersion")
+        ),
+        #(
+            "//./Volume{b75e2c83-0000-0000-0000-602f00000000}/Test/Foo.txt",
+            #("//./Volume{b75e2c83-0000-0000-0000-602f00000000}", "Test/Foo.txt")
+        ),
+        #(
+            "//LOCALHOST/c$/temp/test-file.txt",
+            #("//LOCALHOST/c$", "temp/test-file.txt")
+        ),
+        #(
+            "//./c:/temp/test-file.txt",
+            #("//./c:", "temp/test-file.txt")
+        ),
+        #(
+            "//?/c:/temp/test-file.txt",
+            #("//?/c:", "temp/test-file.txt")
+        ),
+        #(
+            "//./UNC/LOCALHOST/c$/temp/test-file.txt",
+            #("//./UNC", "LOCALHOST/c$/temp/test-file.txt")
+        ),
+        #(
+            "//?/UNC/LOCALHOST/c$/temp/test-file.txt",
+            #("//?/UNC", "LOCALHOST/c$/temp/test-file.txt")
+        ),
+        #(
+            "//127.0.0.1/c$/temp/test-file.txt",
+            #("//127.0.0.1/c$", "temp/test-file.txt")
+        ),
+        #(
+            "//DESKTOP-123/MyShare/subdir/file.txt",
+            #("//DESKTOP-123/MyShare", "subdir/file.txt")
+        ),
+
+        // Incomplete special paths which are interpreted as current-drive-relative:
+        #("//", #("", "//")),
+        #("//.", #("", "//.")),
+        #("//./", #("", "//./")),
+
+        // Incomplete special paths:
+        #("//?", #("", "//?")),
+        #("//?/", #("", "//?/")),
+        #("//.///", #("", "//.///")),
+        #("//?///", #("", "//?///")),
+        #("//127.0.0.1", #("", "//127.0.0.1")),
+        #("//127.0.0.1/", #("", "//127.0.0.1/")),
+
+        // Redundant slashes in special volume paths:
+        #("//./////pipe///testpipe", #("//./////pipe", "//testpipe")),
+        #("//?///////pipe///testpipe", #("//?///////pipe", "//testpipe")),
+        #(
+            "//127.0.0.1/////c$/temp/test-file.txt",
+            #("//127.0.0.1/////c$", "temp/test-file.txt")
+        ),
+    ]
+
+    list.map(testcases, testfn)
 }
 
 pub fn join_0_test() {
