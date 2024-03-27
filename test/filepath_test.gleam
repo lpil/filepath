@@ -20,6 +20,28 @@ fn windows_only(f: fn() -> whatever) -> Nil {
   }
 }
 
+fn non_windows_only(f: fn() -> whatever) -> Nil {
+  case is_windows() {
+    False -> {
+      f()
+      Nil
+    }
+    True -> Nil
+  }
+}
+
+pub fn path_separator_windows_0_test() {
+  use <- windows_only
+  filepath.path_separator()
+  |> should.equal(filepath.path_separator_windows)
+}
+
+pub fn path_separator_non_windows_0_test() {
+  use <- non_windows_only
+  filepath.path_separator()
+  |> should.equal(filepath.path_separator_unix)
+}
+
 pub fn split_0_test() {
   filepath.split("")
   |> should.equal([])

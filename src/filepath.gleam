@@ -20,6 +20,38 @@ import gleam/option.{type Option, None, Some}
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
 fn is_windows() -> Bool
 
+/// Path separator for Unix platforms.
+pub const path_separator_unix = "/"
+
+/// Path separator for the Windows platform.
+pub const path_separator_windows = "\\"
+
+/// Returns the path separator for the operating system
+/// which it's currently being run on.
+///
+/// For Windows, this will be `\`.
+/// For any non-Windows platform, this will be `/`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// path_separator()
+/// // -> "/"
+/// ```
+///
+/// ```gleam
+/// // Windows-only behavior:
+/// path_separator()
+/// // -> "\\"
+/// ```
+///
+pub fn path_separator() -> String {
+  case is_windows() {
+    True -> path_separator_windows
+    False -> path_separator_unix
+  }
+}
+
 /// Join two paths together.
 ///
 /// This function does not expand `..` or `.` segments, use the `expand`
