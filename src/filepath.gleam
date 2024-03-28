@@ -375,8 +375,13 @@ fn get_directory_name(
   }
 }
 
-// TODO: windows support
-/// Check if a path is absolute.
+/// Check whether a given path counts as an absolute path on the
+/// operating system which it's currently being run on.
+///
+/// On Unix systems, absolute paths start with a `/`.
+///
+/// On Windows systems, absolute paths must contain a volume prefix
+/// as dictated by the `split_windows_volume_prefix()` function.
 ///
 /// ## Examples
 ///
@@ -391,7 +396,52 @@ fn get_directory_name(
 /// ```
 ///
 pub fn is_absolute(path: String) -> Bool {
+  case is_windows() {
+    True -> is_absolute_windows(path)
+    False -> is_absolute_unix(path)
+  }
+}
+
+/// Check whether a given Unix path is absolute.
+///
+/// ## Examples
+///
+/// ```gleam
+/// is_absolute_unix("/usr/local/bin")
+/// // -> True
+/// ```
+///
+/// ```gleam
+/// is_absolute_unix("usr/local/bin")
+/// // -> False
+/// ```
+///
+pub fn is_absolute_unix(path: String) -> Bool {
   string.starts_with(path, "/")
+}
+
+/// Check whether a given Windows path is absolute.
+///
+/// Paths on Windows only count as absolute if they have a proper volume
+/// specifier as a prefix, as dictated by `split_windows_volume_prefix()`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// is_absolute_windows("C:\\dir1\\dir2\\file.txt")
+/// // -> True
+/// ```
+///
+/// ```gleam
+/// is_absolute_windows("\\dir1\\dir2\\file.txt")
+/// // -> False
+/// ```
+///
+pub fn is_absolute_windows(path: String) -> Bool {
+  case split_windows_volume_prefix(path) {
+    #("", _) -> False
+    _ -> True
+  }
 }
 
 //TODO: windows support

@@ -392,38 +392,78 @@ pub fn directory_name_7_test() {
   |> should.equal("one/two/three")
 }
 
-pub fn is_absolute_0_test() {
-  filepath.is_absolute("")
+pub fn is_absolute_unix_0_test() {
+  filepath.is_absolute_unix("")
   |> should.equal(False)
 }
 
-pub fn is_absolute_1_test() {
-  filepath.is_absolute("file")
+pub fn is_absolute_unix_1_test() {
+  filepath.is_absolute_unix("file")
   |> should.equal(False)
 }
 
-pub fn is_absolute_2_test() {
-  filepath.is_absolute("/usr/local/bin")
+pub fn is_absolute_unix_2_test() {
+  filepath.is_absolute_unix("/usr/local/bin")
   |> should.equal(True)
 }
 
-pub fn is_absolute_3_test() {
-  filepath.is_absolute("usr/local/bin")
+pub fn is_absolute_unix_3_test() {
+  filepath.is_absolute_unix("usr/local/bin")
   |> should.equal(False)
 }
 
-pub fn is_absolute_4_test() {
-  filepath.is_absolute("../usr/local/bin")
+pub fn is_absolute_unix_4_test() {
+  filepath.is_absolute_unix("../usr/local/bin")
   |> should.equal(False)
 }
 
-pub fn is_absolute_5_test() {
-  filepath.is_absolute("./usr/local/bin")
+pub fn is_absolute_unix_5_test() {
+  filepath.is_absolute_unix("./usr/local/bin")
   |> should.equal(False)
 }
 
-pub fn is_absolute_6_test() {
-  filepath.is_absolute("/")
+pub fn is_absolute_unix_6_test() {
+  filepath.is_absolute_unix("/")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_0_test() {
+  filepath.is_absolute_windows("")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_1_test() {
+  filepath.is_absolute_windows("\\")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_2_test() {
+  filepath.is_absolute_windows("/")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_3_test() {
+  filepath.is_absolute_windows("")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_4_test() {
+  filepath.is_absolute_windows("C:\\Program Files")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_5_test() {
+  filepath.is_absolute_windows("C:/Program Files")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_6_test() {
+  filepath.is_absolute_windows("\\\\DESKTOP-123\\MyShare\\subdir\\file.txt")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_7_test() {
+  filepath.is_absolute_windows("//DESKTOP-123/MyShare/subdir/file.txt")
   |> should.equal(True)
 }
 
