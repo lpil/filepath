@@ -14,7 +14,6 @@ import gleam/list
 import gleam/bool
 import gleam/string
 import gleam/result
-import gleam/option.{type Option, None, Some}
 
 @external(erlang, "filepath_ffi", "is_windows")
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
@@ -62,15 +61,23 @@ fn remove_trailing_slash(path: String) -> String {
 // TODO: Windows support
 /// Split a path into its segments.
 ///
-/// When running on Windows both `/` and `\` are treated as path separators, and 
-/// if the path starts with a drive letter then the drive letter then it is
-/// lowercased.
+/// If the path is an absolute Unix path, the first element will be a `/`.
+///
+/// When running on Windows, both `/` and `\` are treated as path separators,
+/// and the function will split the Windows volume prefix based on the rules
+/// implemented by the `split_windows_volume_prefix()` function.
 ///
 /// ## Examples
 ///
 /// ```gleam
 /// split("/usr/local/bin", "bin")
 /// // -> ["/", "usr", "local", "bin"]
+/// ```
+///
+/// ```gleam
+/// // Windows-only behavior:
+/// split("C:\\Users\\Administrator\\AppData")
+/// // -> #("C:", "Users\\Administrator\\AppData")
 /// ```
 ///
 pub fn split(path: String) -> List(String) {
@@ -117,53 +124,21 @@ pub fn split_unix(path: String) -> List(String) {
 /// ```
 ///
 pub fn split_windows(path: String) -> List(String) {
-  let #(drive, path) = pop_windows_drive_specifier(path)
+  let #(drive, postdrive) = split_windows_volume_prefix(path)
 
   let segments =
-    string.split(path, "/")
+    string.split(postdrive, "/")
     |> list.flat_map(string.split(_, "\\"))
 
   let segments = case drive {
-    Some(drive) -> [drive, ..segments]
-    None -> segments
+    "" -> segments
+    drive -> [drive, ..segments]
   }
 
   case segments {
     [""] -> []
     ["", ..rest] -> ["/", ..rest]
     rest -> rest
-  }
-}
-
-const codepoint_slash = 47
-
-const codepoint_backslash = 92
-
-const codepoint_colon = 58
-
-const codepoint_a = 65
-
-const codepoint_z = 90
-
-const codepoint_a_up = 97
-
-const codepoint_z_up = 122
-
-fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
-  let start = string.slice(from: path, at_index: 0, length: 3)
-  let codepoints = string.to_utf_codepoints(start)
-  case list.map(codepoints, string.utf_codepoint_to_int) {
-    [drive, colon, slash] if {
-      slash == codepoint_slash || slash == codepoint_backslash
-    } && colon == codepoint_colon && {
-      drive >= codepoint_a && drive <= codepoint_z || drive >= codepoint_a_up && drive <= codepoint_z_up
-    } -> {
-      let drive_letter = string.slice(from: path, at_index: 0, length: 1)
-      let drive = string.lowercase(drive_letter) <> ":/"
-      let path = string.drop_left(path, 3)
-      #(Some(drive), path)
-    }
-    _ -> #(None, path)
   }
 }
 

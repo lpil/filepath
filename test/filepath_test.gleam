@@ -91,12 +91,12 @@ pub fn split_windows_2_test() {
 
 pub fn split_windows_3_test() {
   filepath.split_windows("C:\\one\\two")
-  |> should.equal(["c:/", "one", "two"])
+  |> should.equal(["C:", "one", "two"])
 }
 
 pub fn split_windows_4_test() {
   filepath.split_windows("C:/one/two")
-  |> should.equal(["c:/", "one", "two"])
+  |> should.equal(["C:", "one", "two"])
 }
 
 pub fn split_windows_5_test() {
