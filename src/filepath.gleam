@@ -59,12 +59,10 @@ fn remove_trailing_slash(path: String) -> String {
   }
 }
 
-// TODO: Windows support
 /// Split a path into its segments.
 ///
-/// When running on Windows both `/` and `\` are treated as path separators, and 
-/// if the path starts with a drive letter then the drive letter then it is
-/// lowercased.
+/// When running on Windows both `/` and `\` are treated as path separators, and
+/// if the path starts with a drive letter then the drive letter is lowercased.
 ///
 /// ## Examples
 ///
@@ -192,24 +190,24 @@ pub fn extension(path: String) -> Result(String, Nil) {
 }
 
 /// Remove the extension from a file, if it has any.
-/// 
+///
 /// ## Examples
-/// 
+///
 /// ```gleam
 /// strip_extension("src/main.gleam")
 /// // -> "src/main"
 /// ```
-/// 
+///
 /// ```gleam
 /// strip_extension("package.tar.gz")
 /// // -> "package.tar"
 /// ```
-/// 
+///
 /// ```gleam
 /// strip_extension("src/gleam")
 /// // -> "src/gleam"
 /// ```
-/// 
+///
 pub fn strip_extension(path: String) -> String {
   case extension(path) {
     Ok(extension) ->
