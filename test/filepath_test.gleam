@@ -1,3 +1,5 @@
+import gleam/list
+import gleam/string
 import filepath
 import gleeunit
 import gleeunit/should
@@ -89,12 +91,12 @@ pub fn split_windows_2_test() {
 
 pub fn split_windows_3_test() {
   filepath.split_windows("C:\\one\\two")
-  |> should.equal(["c:/", "one", "two"])
+  |> should.equal(["C:", "one", "two"])
 }
 
 pub fn split_windows_4_test() {
   filepath.split_windows("C:/one/two")
-  |> should.equal(["c:/", "one", "two"])
+  |> should.equal(["C:", "one", "two"])
 }
 
 pub fn split_windows_5_test() {
@@ -105,6 +107,134 @@ pub fn split_windows_5_test() {
 pub fn split_windows_6_test() {
   filepath.split_windows("::/one/two")
   |> should.equal(["::", "one", "two"])
+}
+
+pub fn split_windows_volume_prefix_multi_test() {
+  let testfn = fn(testcase: #(String, #(String, String))) {
+    let #(path, expected_split) = testcase
+
+    // Run test case as provided:
+    filepath.split_windows_volume_prefix(path)
+    |> should.equal(expected_split)
+
+    // Invert path separators in test case and expected and re-test:
+    let #(current_separator, other_separator) = case
+      string.contains(path, "/")
+    {
+      True -> #("/", "\\")
+      False -> #("\\", "/")
+    }
+    let invert_separator_char = fn(c) {
+      case c {
+        c if c == current_separator -> other_separator
+        c if c == other_separator -> current_separator
+        c -> c
+      }
+    }
+    let invert_separators = fn(s) {
+      s
+      |> string.to_graphemes
+      |> list.map(invert_separator_char)
+      |> string.join("")
+    }
+
+    let #(expected_volume, expected_rest) = expected_split
+    path
+    |> invert_separators
+    |> filepath.split_windows_volume_prefix
+    |> should.equal(#(
+      invert_separators(expected_volume),
+      invert_separators(expected_rest),
+    ))
+  }
+
+  let testcases: List(#(String, #(String, String))) = [
+    // Unix paths:
+    #("/", #("", "/")),
+    #("/usr/local/bin", #("", "/usr/local/bin")),
+    // Base Windows cases:
+    #("", #("", "")),
+    #("/", #("", "/")),
+    #("\\", #("", "\\")),
+    #("file", #("", "file")),
+    #("dir1/dir2/file.txt", #("", "dir1/dir2/file.txt")),
+    #("::/one/two", #("", "::/one/two")),
+    #("::\\one\\two", #("", "::\\one\\two")),
+    #("C:", #("C:", "")),
+    #("c:", #("c:", "")),
+    #("C:/", #("C:", "")),
+    #("c:\\", #("c:", "")),
+    #("C:/one/two", #("C:", "one/two")),
+    #("c:/one/two", #("c:", "one/two")),
+    #("C:\\one\\two", #("C:", "one\\two")),
+    #("c:\\one\\two", #("c:", "one\\two")),
+    #("C:\\one\\two/three", #("C:", "one\\two/three")),
+    #("c:/one/two\\three", #("c:", "one/two\\three")),
+    // Current-drive absolute paths:
+    #("/dir1/dir2/file.txt", #("", "/dir1/dir2/file.txt")),
+    #("/dir1/dir2\\file.txt", #("", "/dir1/dir2\\file.txt")),
+    #("\\dir1\\dir2\\file.txt", #("", "\\dir1\\dir2\\file.txt")),
+    // Drive-relative paths:
+    #("C:dir1/dir2/file.txt", #("C:", "dir1/dir2/file.txt")),
+    #("C:dir1/dir2\\file.txt", #("C:", "dir1/dir2\\file.txt")),
+    #("C:dir1\\dir2\\file.txt", #("C:", "dir1\\dir2\\file.txt")),
+    // Specialized Windows paths:
+    #("HKLM:", #("HKLM:", "")),
+    #("HKLM:/", #("HKLM:", "")),
+    #("//./pipe", #("//./pipe", "")),
+    #("//./pipe/", #("//./pipe", "")),
+    #("//./pipe/testpipe", #("//./pipe", "testpipe")),
+    #("HKLM:/SOFTWARE/Microsoft/Windows/CurrentVersion", #(
+      "HKLM:",
+      "SOFTWARE/Microsoft/Windows/CurrentVersion",
+    )),
+    #("//./Volume{b75e2c83-0000-0000-0000-602f00000000}/Test/Foo.txt", #(
+      "//./Volume{b75e2c83-0000-0000-0000-602f00000000}",
+      "Test/Foo.txt",
+    )),
+    #("//LOCALHOST/c$/temp/test-file.txt", #(
+      "//LOCALHOST/c$",
+      "temp/test-file.txt",
+    )),
+    #("//./c:/temp/test-file.txt", #("//./c:", "temp/test-file.txt")),
+    #("//?/c:/temp/test-file.txt", #("//?/c:", "temp/test-file.txt")),
+    #("//./UNC/LOCALHOST/c$/temp/test-file.txt", #(
+      "//./UNC",
+      "LOCALHOST/c$/temp/test-file.txt",
+    )),
+    #("//?/UNC/LOCALHOST/c$/temp/test-file.txt", #(
+      "//?/UNC",
+      "LOCALHOST/c$/temp/test-file.txt",
+    )),
+    #("//127.0.0.1/c$/temp/test-file.txt", #(
+      "//127.0.0.1/c$",
+      "temp/test-file.txt",
+    )),
+    #("//DESKTOP-123/MyShare/subdir/file.txt", #(
+      "//DESKTOP-123/MyShare",
+      "subdir/file.txt",
+    )),
+    // Incomplete special paths which are interpreted as current-drive-relative:
+    #("//", #("", "//")),
+    #("//.", #("", "//.")),
+    #("//./", #("", "//./")),
+    // Incomplete special paths:
+    #("//?", #("", "//?")),
+    #("//?/", #("", "//?/")),
+    #("//.///", #("", "//.///")),
+    #("//?///", #("", "//?///")),
+    #("//127.0.0.1", #("", "//127.0.0.1")),
+    #("//127.0.0.1/", #("", "//127.0.0.1/")),
+    // Redundant slashes in special volume paths:
+    #("//./////pipe///testpipe", #("//./////pipe", "//testpipe")),
+    #("//?///////pipe///testpipe", #("//?///////pipe", "//testpipe")),
+    #("//127.0.0.1/////c$/temp/test-file.txt", #(
+      "//127.0.0.1/////c$",
+      "temp/test-file.txt",
+    )),
+  ]
+
+  list.map(testcases, testfn)
 }
 
 pub fn join_0_test() {
@@ -262,38 +392,78 @@ pub fn directory_name_7_test() {
   |> should.equal("one/two/three")
 }
 
-pub fn is_absolute_0_test() {
-  filepath.is_absolute("")
+pub fn is_absolute_unix_0_test() {
+  filepath.is_absolute_unix("")
   |> should.equal(False)
 }
 
-pub fn is_absolute_1_test() {
-  filepath.is_absolute("file")
+pub fn is_absolute_unix_1_test() {
+  filepath.is_absolute_unix("file")
   |> should.equal(False)
 }
 
-pub fn is_absolute_2_test() {
-  filepath.is_absolute("/usr/local/bin")
+pub fn is_absolute_unix_2_test() {
+  filepath.is_absolute_unix("/usr/local/bin")
   |> should.equal(True)
 }
 
-pub fn is_absolute_3_test() {
-  filepath.is_absolute("usr/local/bin")
+pub fn is_absolute_unix_3_test() {
+  filepath.is_absolute_unix("usr/local/bin")
   |> should.equal(False)
 }
 
-pub fn is_absolute_4_test() {
-  filepath.is_absolute("../usr/local/bin")
+pub fn is_absolute_unix_4_test() {
+  filepath.is_absolute_unix("../usr/local/bin")
   |> should.equal(False)
 }
 
-pub fn is_absolute_5_test() {
-  filepath.is_absolute("./usr/local/bin")
+pub fn is_absolute_unix_5_test() {
+  filepath.is_absolute_unix("./usr/local/bin")
   |> should.equal(False)
 }
 
-pub fn is_absolute_6_test() {
-  filepath.is_absolute("/")
+pub fn is_absolute_unix_6_test() {
+  filepath.is_absolute_unix("/")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_0_test() {
+  filepath.is_absolute_windows("")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_1_test() {
+  filepath.is_absolute_windows("\\")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_2_test() {
+  filepath.is_absolute_windows("/")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_3_test() {
+  filepath.is_absolute_windows("")
+  |> should.equal(False)
+}
+
+pub fn is_absolute_windows_4_test() {
+  filepath.is_absolute_windows("C:\\Program Files")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_5_test() {
+  filepath.is_absolute_windows("C:/Program Files")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_6_test() {
+  filepath.is_absolute_windows("\\\\DESKTOP-123\\MyShare\\subdir\\file.txt")
+  |> should.equal(True)
+}
+
+pub fn is_absolute_windows_7_test() {
+  filepath.is_absolute_windows("//DESKTOP-123/MyShare/subdir/file.txt")
   |> should.equal(True)
 }
 

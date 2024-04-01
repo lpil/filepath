@@ -14,7 +14,6 @@ import gleam/list
 import gleam/bool
 import gleam/string
 import gleam/result
-import gleam/option.{type Option, None, Some}
 
 @external(erlang, "filepath_ffi", "is_windows")
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
@@ -62,15 +61,23 @@ fn remove_trailing_slash(path: String) -> String {
 // TODO: Windows support
 /// Split a path into its segments.
 ///
-/// When running on Windows both `/` and `\` are treated as path separators, and 
-/// if the path starts with a drive letter then the drive letter then it is
-/// lowercased.
+/// If the path is an absolute Unix path, the first element will be a `/`.
+///
+/// When running on Windows, both `/` and `\` are treated as path separators,
+/// and the function will split the Windows volume prefix based on the rules
+/// implemented by the `split_windows_volume_prefix()` function.
 ///
 /// ## Examples
 ///
 /// ```gleam
 /// split("/usr/local/bin", "bin")
 /// // -> ["/", "usr", "local", "bin"]
+/// ```
+///
+/// ```gleam
+/// // Windows-only behavior:
+/// split("C:\\Users\\Administrator\\AppData")
+/// // -> #("C:", "Users\\Administrator\\AppData")
 /// ```
 ///
 pub fn split(path: String) -> List(String) {
@@ -117,15 +124,15 @@ pub fn split_unix(path: String) -> List(String) {
 /// ```
 ///
 pub fn split_windows(path: String) -> List(String) {
-  let #(drive, path) = pop_windows_drive_specifier(path)
+  let #(drive, postdrive) = split_windows_volume_prefix(path)
 
   let segments =
-    string.split(path, "/")
+    string.split(postdrive, "/")
     |> list.flat_map(string.split(_, "\\"))
 
   let segments = case drive {
-    Some(drive) -> [drive, ..segments]
-    None -> segments
+    "" -> segments
+    drive -> [drive, ..segments]
   }
 
   case segments {
@@ -135,35 +142,133 @@ pub fn split_windows(path: String) -> List(String) {
   }
 }
 
-const codepoint_slash = 47
-
-const codepoint_backslash = 92
-
-const codepoint_colon = 58
-
-const codepoint_a = 65
-
-const codepoint_z = 90
-
-const codepoint_a_up = 97
-
-const codepoint_z_up = 122
-
-fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
-  let start = string.slice(from: path, at_index: 0, length: 3)
-  let codepoints = string.to_utf_codepoints(start)
-  case list.map(codepoints, string.utf_codepoint_to_int) {
-    [drive, colon, slash] if {
-      slash == codepoint_slash || slash == codepoint_backslash
-    } && colon == codepoint_colon && {
-      drive >= codepoint_a && drive <= codepoint_z || drive >= codepoint_a_up && drive <= codepoint_z_up
-    } -> {
-      let drive_letter = string.slice(from: path, at_index: 0, length: 1)
-      let drive = string.lowercase(drive_letter) <> ":/"
-      let path = string.drop_left(path, 3)
-      #(Some(drive), path)
+/// Splits the Windows volume prefix from a given Windows path,
+/// returning a tuple of two Strings with the value of the volume
+/// prefix (if any) first, and the rest of the path (if any) second.
+///
+/// Works with paths featuring `/`, `\`, or both, as long as the
+/// volume prefix uses the same one consistently.
+/// The orientation of the slashes in the volume prefix and the rest
+/// of the path is preserved in the resulting tuple elements.
+/// The separator between the prefix and the rest of the path is discarded.
+///
+/// Full details on possible volume prefix syntax can be found at:
+/// https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats
+/// https://googleprojectzero.blogspot.com/2016/02/the-definitive-guide-on-win32-to-nt.html
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Normal drive-lettered absolute path with either slashes or backslashes:
+/// split_windows_volume_prefix("C:\\Users\\Administrator\\AppData")
+/// // -> #("C:", "Users\\Administrator\\AppData")
+/// ```
+///
+/// ```gleam
+/// // DOS Local Device ("//./DEV/..."):
+/// split_windows_volume_prefix("//./pipe/testpipe")
+/// // -> #("//./pipe", "testpipe")
+/// ```
+///
+/// ```gleam
+/// // DOS Root Local Device ("//?/DEV/./..."):
+/// split_windows_volume_prefix("//?/C:/Users/Administrator")
+/// // -> #("//?/C:", "Users/Administrator")
+/// ```
+///
+/// ```gleam
+/// // UNC paths will include the IP/hostname and sharename portions:
+/// split_windows_volume_prefix("//DESKTOP-123/MyShare/subdir/file.txt")
+/// // -> #("//DESKTOP-123/MyShare", "subdir/file.txt")
+/// ```
+///
+pub fn split_windows_volume_prefix(path path: String) -> #(String, String) {
+  case path {
+    // NOTE: DOS device paths may include ":" too, so we must match
+    // for them before matching for regular drives:
+    // DOS device paths:
+    "//." as start <> rest | "//?" as start <> rest -> {
+      split_rest_once(start, "/", rest)
     }
-    _ -> #(None, path)
+    "\\\\." as start <> rest | "\\\\?" as start <> rest -> {
+      split_rest_once(start, "\\", rest)
+    }
+
+    // UNC paths where both the IP/hostname and share/drive name count
+    // as part of the volume prefix:
+    "//" as start <> rest -> {
+      split_rest_twice(start, "/", rest)
+    }
+    "\\\\" as start <> rest -> {
+      split_rest_twice(start, "\\", rest)
+    }
+
+    // Check for normal absolute paths and drive-relative paths:
+    _ ->
+      case string.split_once(path, on: ":") {
+        Ok(#(precolon, postcolon)) -> {
+          case precolon {
+            // The colon is the first character in the string
+            // so there is no drive to speak of:
+            "" -> #("", ":" <> postcolon)
+
+            precolon ->
+              case postcolon {
+                "/" <> rest -> #(precolon <> ":", rest)
+                "\\" <> rest -> #(precolon <> ":", rest)
+                // Path is a current-drive-relative path:
+                _ -> #(precolon <> ":", postcolon)
+              }
+          }
+        }
+        // Path has no colon and is likely a relative or absolute path:
+        Error(_) -> #("", path)
+      }
+  }
+}
+
+// Helper function to extract one more path element from the `rest` of the
+// path and form the final result for `split_windows_volume_prefix`.
+fn split_rest_once(
+  start: String,
+  sep: String,
+  rest: String,
+) -> #(String, String) {
+  case string.split_once(rest, on: sep) {
+    Ok(#(drive, rest2)) -> {
+      case drive {
+        // The `rest` started with multiple redundant separators,
+        // which is acceptable, and we must recurse:
+        // eg: //./////pipe/testpipe
+        "" -> split_rest_once(start <> sep, sep, rest2)
+        _ -> #(start <> drive, rest2)
+      }
+    }
+    Error(_) ->
+      case rest {
+        "" -> #("", start <> rest)
+        // NOTE: if the `rest` wasn't initially empty, it counts
+        // even if it doesn't have any `sep` in it:
+        _ -> #(start <> rest, "")
+      }
+  }
+}
+
+// Helper function to extract two more path elements from the `rest` of the
+// path and form the final result for `split_windows_volume_prefix`.
+fn split_rest_twice(
+  start: String,
+  sep: String,
+  rest: String,
+) -> #(String, String) {
+  case split_rest_once(start, sep, rest) {
+    #("", _) -> #("", start <> rest)
+    // Avoid extraneous call to `split_rest_once` with the added separator
+    // if the `rest` is already empty after the first split:
+    #(_, "") -> #("", start <> rest)
+    #(drive1, rest1) -> {
+      split_rest_once(drive1 <> sep, sep, rest1)
+    }
   }
 }
 
@@ -270,8 +375,13 @@ fn get_directory_name(
   }
 }
 
-// TODO: windows support
-/// Check if a path is absolute.
+/// Check whether a given path counts as an absolute path on the
+/// operating system which it's currently being run on.
+///
+/// On Unix systems, absolute paths start with a `/`.
+///
+/// On Windows systems, absolute paths must contain a volume prefix
+/// as dictated by the `split_windows_volume_prefix()` function.
 ///
 /// ## Examples
 ///
@@ -286,7 +396,52 @@ fn get_directory_name(
 /// ```
 ///
 pub fn is_absolute(path: String) -> Bool {
+  case is_windows() {
+    True -> is_absolute_windows(path)
+    False -> is_absolute_unix(path)
+  }
+}
+
+/// Check whether a given Unix path is absolute.
+///
+/// ## Examples
+///
+/// ```gleam
+/// is_absolute_unix("/usr/local/bin")
+/// // -> True
+/// ```
+///
+/// ```gleam
+/// is_absolute_unix("usr/local/bin")
+/// // -> False
+/// ```
+///
+pub fn is_absolute_unix(path: String) -> Bool {
   string.starts_with(path, "/")
+}
+
+/// Check whether a given Windows path is absolute.
+///
+/// Paths on Windows only count as absolute if they have a proper volume
+/// specifier as a prefix, as dictated by `split_windows_volume_prefix()`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// is_absolute_windows("C:\\dir1\\dir2\\file.txt")
+/// // -> True
+/// ```
+///
+/// ```gleam
+/// is_absolute_windows("\\dir1\\dir2\\file.txt")
+/// // -> False
+/// ```
+///
+pub fn is_absolute_windows(path: String) -> Bool {
+  case split_windows_volume_prefix(path) {
+    #("", _) -> False
+    _ -> True
+  }
 }
 
 //TODO: windows support
