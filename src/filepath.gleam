@@ -20,6 +20,38 @@ import gleam/option.{type Option, None, Some}
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
 fn is_windows() -> Bool
 
+/// Path separator for Unix platforms.
+pub const path_separator_unix = "/"
+
+/// Path separator for the Windows platform.
+pub const path_separator_windows = "\\"
+
+/// Returns the path separator for the operating system
+/// which it's currently being run on.
+///
+/// For Windows, this will be `\`.
+/// For any non-Windows platform, this will be `/`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// path_separator()
+/// // -> "/"
+/// ```
+///
+/// ```gleam
+/// // Windows-only behavior:
+/// path_separator()
+/// // -> "\\"
+/// ```
+///
+pub fn path_separator() -> String {
+  case is_windows() {
+    True -> path_separator_windows
+    False -> path_separator_unix
+  }
+}
+
 /// Join two paths together.
 ///
 /// This function does not expand `..` or `.` segments, use the `expand`
@@ -59,12 +91,10 @@ fn remove_trailing_slash(path: String) -> String {
   }
 }
 
-// TODO: Windows support
 /// Split a path into its segments.
 ///
-/// When running on Windows both `/` and `\` are treated as path separators, and 
-/// if the path starts with a drive letter then the drive letter then it is
-/// lowercased.
+/// When running on Windows both `/` and `\` are treated as path separators, and
+/// if the path starts with a drive letter then the drive letter is lowercased.
 ///
 /// ## Examples
 ///
@@ -192,24 +222,24 @@ pub fn extension(path: String) -> Result(String, Nil) {
 }
 
 /// Remove the extension from a file, if it has any.
-/// 
+///
 /// ## Examples
-/// 
+///
 /// ```gleam
 /// strip_extension("src/main.gleam")
 /// // -> "src/main"
 /// ```
-/// 
+///
 /// ```gleam
 /// strip_extension("package.tar.gz")
 /// // -> "package.tar"
 /// ```
-/// 
+///
 /// ```gleam
 /// strip_extension("src/gleam")
 /// // -> "src/gleam"
 /// ```
-/// 
+///
 pub fn strip_extension(path: String) -> String {
   case extension(path) {
     Ok(extension) ->

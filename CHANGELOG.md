@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.0 - 2024-04-01
+
+- Add `path_separator_unix` and `path_separator_windows` constants.
+- Add `path_separator()` function for returning the path separator
+  for the platform currently being run on.
+
 ## v1.0.0 - 2024-02-08
 
 - All existing functions now support Windows paths when run on Windows.
