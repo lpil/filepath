@@ -208,82 +208,93 @@ fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
 /// ```
 ///
 pub fn split_windows_volume_prefix(path path: String) -> #(String, String) {
-    case path {
-        // NOTE: DOS device paths may include ":" too, so we must match
-        // for them before matching for regular drives:
-        // DOS device paths:
-        "//." as start <> rest | "//?" as start <> rest -> {
-            split_rest_once(start, "/", rest)
-        }
-        "\\\\." as start <> rest | "\\\\?" as start <> rest -> {
-            split_rest_once(start, "\\", rest)
-        }
-
-        // UNC paths where both the IP/hostname and share/drive name count
-        // as part of the volume prefix:
-        "//" as start <> rest -> {
-            split_rest_twice(start, "/", rest)
-        }
-        "\\\\" as start <> rest -> {
-            split_rest_twice(start, "\\", rest)
-        }
-
-        // Check for normal absolute paths and drive-relative paths:
-        _ -> case string.split_once(path, on: ":") {
-            Ok(#(precolon, postcolon)) -> {
-                case precolon {
-                    // The colon is the first character in the string
-                    // so there is no drive to speak of:
-                    "" -> #("", ":" <> postcolon)
-
-                    precolon -> case postcolon {
-                        "/"  <> rest -> #(precolon <> ":", rest)
-                        "\\" <> rest -> #(precolon <> ":", rest)
-                        // Path is a current-drive-relative path:
-                        _ -> #(precolon <> ":", postcolon)
-                    }
-                }
-            }
-            // Path has no colon and is likely a relative or absolute path:
-            Error(_) -> #("", path)
-        }
+  case path {
+    // NOTE: DOS device paths may include ":" too, so we must match
+    // for them before matching for regular drives:
+    // DOS device paths:
+    "//." as start <> rest | "//?" as start <> rest -> {
+      split_rest_once(start, "/", rest)
     }
+    "\\\\." as start <> rest | "\\\\?" as start <> rest -> {
+      split_rest_once(start, "\\", rest)
+    }
+
+    // UNC paths where both the IP/hostname and share/drive name count
+    // as part of the volume prefix:
+    "//" as start <> rest -> {
+      split_rest_twice(start, "/", rest)
+    }
+    "\\\\" as start <> rest -> {
+      split_rest_twice(start, "\\", rest)
+    }
+
+    // Check for normal absolute paths and drive-relative paths:
+    _ ->
+      case string.split_once(path, on: ":") {
+        Ok(#(precolon, postcolon)) -> {
+          case precolon {
+            // The colon is the first character in the string
+            // so there is no drive to speak of:
+            "" -> #("", ":" <> postcolon)
+
+            precolon ->
+              case postcolon {
+                "/" <> rest -> #(precolon <> ":", rest)
+                "\\" <> rest -> #(precolon <> ":", rest)
+                // Path is a current-drive-relative path:
+                _ -> #(precolon <> ":", postcolon)
+              }
+          }
+        }
+        // Path has no colon and is likely a relative or absolute path:
+        Error(_) -> #("", path)
+      }
+  }
 }
 
 // Helper function to extract one more path element from the `rest` of the
 // path and form the final result for `split_windows_volume_prefix`.
-fn split_rest_once(start: String, sep: String, rest: String) -> #(String, String) {
-    case string.split_once(rest, on: sep) {
-        Ok(#(drive, rest2)) -> {
-            case drive {
-                // The `rest` started with multiple redundant separators,
-                // which is acceptable, and we must recurse:
-                // eg: //./////pipe/testpipe
-                "" -> split_rest_once(start <> sep, sep, rest2)
-                _ -> #(start <> drive, rest2)
-            }
-        }
-        Error(_) -> case rest {
-            "" -> #("", start <> rest)
-            // NOTE: if the `rest` wasn't initially empty, it counts
-            // even if it doesn't have any `sep` in it:
-            _ -> #(start <> rest, "")
-        }
+fn split_rest_once(
+  start: String,
+  sep: String,
+  rest: String,
+) -> #(String, String) {
+  case string.split_once(rest, on: sep) {
+    Ok(#(drive, rest2)) -> {
+      case drive {
+        // The `rest` started with multiple redundant separators,
+        // which is acceptable, and we must recurse:
+        // eg: //./////pipe/testpipe
+        "" -> split_rest_once(start <> sep, sep, rest2)
+        _ -> #(start <> drive, rest2)
+      }
     }
+    Error(_) ->
+      case rest {
+        "" -> #("", start <> rest)
+        // NOTE: if the `rest` wasn't initially empty, it counts
+        // even if it doesn't have any `sep` in it:
+        _ -> #(start <> rest, "")
+      }
+  }
 }
 
 // Helper function to extract two more path elements from the `rest` of the
 // path and form the final result for `split_windows_volume_prefix`.
-fn split_rest_twice(start: String, sep: String, rest: String) -> #(String, String) {
-    case split_rest_once(start, sep, rest) {
-        #("", _) -> #("", start <> rest)
-        // Avoid extraneous call to `split_rest_once` with the added separator
-        // if the `rest` is already empty after the first split:
-        #(_, "") -> #("", start <> rest)
-        #(drive1, rest1) -> {
-            split_rest_once(drive1 <> sep, sep, rest1)
-        }
+fn split_rest_twice(
+  start: String,
+  sep: String,
+  rest: String,
+) -> #(String, String) {
+  case split_rest_once(start, sep, rest) {
+    #("", _) -> #("", start <> rest)
+    // Avoid extraneous call to `split_rest_once` with the added separator
+    // if the `rest` is already empty after the first split:
+    #(_, "") -> #("", start <> rest)
+    #(drive1, rest1) -> {
+      split_rest_once(drive1 <> sep, sep, rest1)
     }
+  }
 }
 
 /// Get the file extension of a path.
