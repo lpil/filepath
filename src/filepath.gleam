@@ -10,11 +10,11 @@
 // https://github.com/elixir-lang/elixir/blob/main/lib/elixir/test/elixir/path_test.exs
 // https://cs.opensource.google/go/go/+/refs/tags/go1.21.4:src/path/match.go
 
-import gleam/list
 import gleam/bool
-import gleam/string
-import gleam/result
+import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
+import gleam/string
 
 @external(erlang, "filepath_ffi", "is_windows")
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
@@ -153,11 +153,16 @@ fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
   let start = string.slice(from: path, at_index: 0, length: 3)
   let codepoints = string.to_utf_codepoints(start)
   case list.map(codepoints, string.utf_codepoint_to_int) {
-    [drive, colon, slash] if {
-      slash == codepoint_slash || slash == codepoint_backslash
-    } && colon == codepoint_colon && {
-      drive >= codepoint_a && drive <= codepoint_z || drive >= codepoint_a_up && drive <= codepoint_z_up
-    } -> {
+    [drive, colon, slash]
+      if { slash == codepoint_slash || slash == codepoint_backslash }
+      && colon == codepoint_colon
+      && {
+        drive >= codepoint_a
+        && drive <= codepoint_z
+        || drive >= codepoint_a_up
+        && drive <= codepoint_z_up
+      }
+    -> {
       let drive_letter = string.slice(from: path, at_index: 0, length: 1)
       let drive = string.lowercase(drive_letter) <> ":/"
       let path = string.drop_left(path, 3)
@@ -251,12 +256,10 @@ pub fn split_windows_volume_prefix(
 
             precolon ->
               case
-                #(
-                  string.contains(precolon, "\\"),
-                  string.contains(precolon, "/"),
-                )
+                string.contains(precolon, "\\"),
+                string.contains(precolon, "/")
               {
-                #(False, False) ->
+                False, False ->
                   case postcolon {
                     "/" <> rest -> Ok(#(precolon <> ":/", rest))
                     "\\" <> rest -> Ok(#(precolon <> ":\\", rest))
@@ -266,7 +269,7 @@ pub fn split_windows_volume_prefix(
                   }
                 // Path is an incorrect Windows path, as only the first part of
                 // of a non-UNC Windows path is ever allowed to have a colon.
-                _ -> Error(Nil)
+                _, _ -> Error(Nil)
               }
           }
         }
