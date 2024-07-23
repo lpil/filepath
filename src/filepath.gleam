@@ -10,11 +10,11 @@
 // https://github.com/elixir-lang/elixir/blob/main/lib/elixir/test/elixir/path_test.exs
 // https://cs.opensource.google/go/go/+/refs/tags/go1.21.4:src/path/match.go
 
-import gleam/list
 import gleam/bool
-import gleam/string
-import gleam/result
+import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
+import gleam/string
 
 @external(erlang, "filepath_ffi", "is_windows")
 @external(javascript, "./filepath_ffi.mjs", "is_windows")
@@ -153,17 +153,171 @@ fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
   let start = string.slice(from: path, at_index: 0, length: 3)
   let codepoints = string.to_utf_codepoints(start)
   case list.map(codepoints, string.utf_codepoint_to_int) {
-    [drive, colon, slash] if {
-      slash == codepoint_slash || slash == codepoint_backslash
-    } && colon == codepoint_colon && {
-      drive >= codepoint_a && drive <= codepoint_z || drive >= codepoint_a_up && drive <= codepoint_z_up
-    } -> {
+    [drive, colon, slash]
+      if { slash == codepoint_slash || slash == codepoint_backslash }
+      && colon == codepoint_colon
+      && {
+        drive >= codepoint_a
+        && drive <= codepoint_z
+        || drive >= codepoint_a_up
+        && drive <= codepoint_z_up
+      }
+    -> {
       let drive_letter = string.slice(from: path, at_index: 0, length: 1)
       let drive = string.lowercase(drive_letter) <> ":/"
       let path = string.drop_left(path, 3)
       #(Some(drive), path)
     }
     _ -> #(None, path)
+  }
+}
+
+/// Splits the Windows volume prefix from a given Windows path,
+/// returning a tuple of two Strings with the value of the volume
+/// prefix and the rest of the path if the split was successful.
+///
+/// Works with paths featuring `/`, `\`, or both, as long as the
+/// volume prefix uses the same one consistently.
+/// The orientation of the slashes in the volume prefix and the rest
+/// of the path is preserved in the resulting tuple elements.
+///
+/// The separator between the prefix and the rest of the path (if any)
+/// will be included in the first (volume part) of the returned tuple.
+///
+/// Implemens the feature that:
+///
+/// ```gleam
+/// let assert Ok(#(drive, rest)) = split_windows_volume_prefix(original_path)
+/// drive <> rest == original_path
+/// // -> True
+/// ```
+///
+/// Full details on possible volume prefix syntax can be found at:
+/// * [Microsoft Guide](https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats)
+/// * [Google Project Zero Investigation](https://googleprojectzero.blogspot.com/2016/02/the-definitive-guide-on-win32-to-nt.html)
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Normal drive-lettered absolute path with either slashes or backslashes:
+/// split_windows_volume_prefix("C:\\Users\\Administrator\\AppData")
+/// // -> Ok(#("C:", "Users\\Administrator\\AppData"))
+/// ```
+///
+/// ```gleam
+/// // DOS Local Device ("//./DEV/..."):
+/// split_windows_volume_prefix("//./pipe/testpipe")
+/// // -> Ok(#("//./pipe", "testpipe"))
+/// ```
+///
+/// ```gleam
+/// // DOS Root Local Device ("//?/DEV/./..."):
+/// split_windows_volume_prefix("//?/C:/Users/Administrator")
+/// // -> Ok(#("//?/C:", "Users/Administrator"))
+/// ```
+///
+/// ```gleam
+/// // UNC paths will include the IP/hostname and sharename portions:
+/// split_windows_volume_prefix("//DESKTOP-123/MyShare/subdir/file.txt")
+/// // -> Ok(#("//DESKTOP-123/MyShare", "subdir/file.txt"))
+/// ```
+///
+pub fn split_windows_volume_prefix(
+  path path: String,
+) -> Result(#(String, String), Nil) {
+  case path {
+    // NOTE: DOS device paths may include ":" too, so we must match
+    // for them before matching for regular drives:
+    // DOS device paths:
+    "//." as start <> rest | "//?" as start <> rest -> {
+      split_rest_once(start, "/", rest)
+    }
+    "\\\\." as start <> rest | "\\\\?" as start <> rest -> {
+      split_rest_once(start, "\\", rest)
+    }
+
+    // UNC paths where both the IP/hostname and share/drive name count
+    // as part of the volume prefix:
+    "//" as start <> rest -> {
+      split_rest_twice(start, "/", rest)
+    }
+    "\\\\" as start <> rest -> {
+      split_rest_twice(start, "\\", rest)
+    }
+
+    // Check for normal absolute paths and drive-relative paths:
+    _ ->
+      case string.split_once(path, on: ":") {
+        Ok(#(precolon, postcolon)) -> {
+          case precolon {
+            // The colon is the first character in the string
+            // so there is no drive to speak of:
+            "" -> Error(Nil)
+
+            precolon ->
+              case
+                string.contains(precolon, "\\"),
+                string.contains(precolon, "/")
+              {
+                False, False ->
+                  case postcolon {
+                    "/" <> rest -> Ok(#(precolon <> ":/", rest))
+                    "\\" <> rest -> Ok(#(precolon <> ":\\", rest))
+                    // Path is a current-drive-relative path.
+                    // E.g: C:Users => C:\$CWD\Users
+                    _ -> Ok(#(precolon <> ":", postcolon))
+                  }
+                // Path is an incorrect Windows path, as only the first part of
+                // of a non-UNC Windows path is ever allowed to have a colon.
+                _, _ -> Error(Nil)
+              }
+          }
+        }
+        // Path has no colon and is likely a relative or drive-absolute path:
+        Error(_) -> Error(Nil)
+      }
+  }
+}
+
+// Helper function to extract one more path element from the `rest` of the
+// path and form the final result for `split_windows_volume_prefix`.
+fn split_rest_once(
+  start: String,
+  sep: String,
+  rest: String,
+) -> Result(#(String, String), Nil) {
+  case string.split_once(rest, on: sep) {
+    Ok(#(drive, rest2)) -> {
+      case drive {
+        // The `rest` started with multiple redundant separators,
+        // which is acceptable, and we must recurse:
+        // eg: //./////pipe/testpipe
+        "" -> split_rest_once(start <> sep, sep, rest2)
+        _ -> Ok(#(start <> drive <> sep, rest2))
+      }
+    }
+    Error(_) ->
+      case rest {
+        "" -> Error(Nil)
+        // NOTE: if the `rest` wasn't initially empty, it counts
+        // even if it doesn't have any `sep` in it:
+        _ -> Ok(#(start <> rest, ""))
+      }
+  }
+}
+
+// Helper function to extract two more path elements from the `rest` of the
+// path and form the final result for `split_windows_volume_prefix`.
+fn split_rest_twice(
+  start: String,
+  sep: String,
+  rest: String,
+) -> Result(#(String, String), Nil) {
+  case split_rest_once(start, sep, rest) {
+    Error(_) -> Error(Nil)
+    Ok(#(drive1, rest1)) -> {
+      split_rest_once(drive1, sep, rest1)
+    }
   }
 }
 

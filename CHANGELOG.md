@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.0
+
+- Add new `split_windows_volume_prefix()`.
+
 ## v1.0.0 - 2024-02-08
 
 - All existing functions now support Windows paths when run on Windows.
