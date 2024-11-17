@@ -54,7 +54,7 @@ fn relative(path: String) -> String {
 
 fn remove_trailing_slash(path: String) -> String {
   case string.ends_with(path, "/") {
-    True -> string.drop_right(path, 1)
+    True -> string.drop_end(path, 1)
     False -> path
   }
 }
@@ -160,7 +160,7 @@ fn pop_windows_drive_specifier(path: String) -> #(Option(String), String) {
     } -> {
       let drive_letter = string.slice(from: path, at_index: 0, length: 1)
       let drive = string.lowercase(drive_letter) <> ":/"
-      let path = string.drop_left(path, 3)
+      let path = string.drop_start(path, 3)
       #(Some(drive), path)
     }
     _ -> #(None, path)
@@ -215,7 +215,7 @@ pub fn strip_extension(path: String) -> String {
     Ok(extension) ->
       // Since the extension string doesn't have a leading `.`
       // we drop a grapheme more to remove that as well.
-      string.drop_right(path, string.length(extension) + 1)
+      string.drop_end(path, string.length(extension) + 1)
     Error(Nil) -> path
   }
 }
