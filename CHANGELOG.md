@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.0 - 2024-11-19
+
+- Updated for `gleam_stdlib` v0.43.0.
+
 ## v1.0.0 - 2024-02-08
 
 - All existing functions now support Windows paths when run on Windows.
