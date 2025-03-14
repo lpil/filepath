@@ -167,6 +167,11 @@ pub fn join_11_test() {
   |> should.equal("/one/two/three")
 }
 
+pub fn join_12_test() {
+  filepath.join("/", "one")
+  |> should.equal("/one")
+}
+
 pub fn extension_0_test() {
   filepath.extension("file")
   |> should.equal(Error(Nil))

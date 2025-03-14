@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.1 - 2025-03-14
+
+- Fixed a bug with `join` not giving correct results when joining to the
+  filesystem root.
+
 ## v1.1.0 - 2024-11-19
 
 - Updated for `gleam_stdlib` v0.43.0.
