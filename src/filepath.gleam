@@ -328,6 +328,7 @@ pub fn expand(path: String) -> Result(String, Nil) {
     |> split
     |> root_slash_to_empty
     |> expand_segments([])
+    |> result.map(remove_trailing_slash)
 
   case is_absolute && result == Ok("") {
     True -> Ok("/")
