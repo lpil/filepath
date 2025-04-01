@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.2 - 2025-04-01
+
+- Fixed a bug with `expand` adding a trailing slash on Windows.
+
 ## v1.1.1 - 2025-03-14
 
 - Fixed a bug with `join` not giving correct results when joining to the
